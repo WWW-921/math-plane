@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✈️ 数学飞行大冒险</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0a0a2a;overflow:hidden;font-family:'Microsoft YaHei',Arial;display:flex;align-items:center;justify-content:center;height:100vh;}
+canvas{display:block;border-radius:6px;}
+#ov{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+.scr{display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;pointer-events:auto;padding:20px;width:100%;height:100%;}
+.scr.on{display:flex;}
+#grade-sel{background:linear-gradient(180deg,#1a237e,#283593,#1565c0);}
+#shop-scr{background:rgba(10,10,40,0.97);}
+#win-scr{background:rgba(0,50,20,0.92);}
+#lose-scr{background:rgba(50,0,0,0.92);}
+h1{font-size:44px;margin-bottom:5px;text-shadow:2px 2px 6px rgba(0,0,0,0.5);}
+h2{font-size:28px;margin-bottom:12px;}
+.sub{color:#90caf9;font-size:14px;margin-bottom:20px;}
+.btn{padding:12px 32px;margin:5px;font-size:16px;border:none;border-radius:10px;cursor:pointer;transition:0.2s;font-family:inherit;color:#fff;font-weight:bold;}
+.btn:hover{transform:scale(1.05);}
+.btn-go{background:linear-gradient(135deg,#43a047,#2e7d32);}
+.btn-shop{background:linear-gradient(135deg,#f9a825,#ef6c00);}
+.btn-next{background:linear-gradient(135deg,#1e88e5,#1565c0);}
+.btn-back{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);}
+.grade-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:15px 0;max-width:420px;}
+.grade-btn{padding:18px 10px;font-size:15px;border:2px solid rgba(255,255,255,0.2);border-radius:14px;cursor:pointer;transition:0.2s;color:#fff;font-weight:bold;font-family:inherit;background:rgba(255,255,255,0.08);}
+.grade-btn:hover{background:rgba(255,255,255,0.2);transform:translateY(-3px);}
+.grade-btn .glv{font-size:28px;display:block;margin-bottom:4px;}
+.coins{font-size:22px;color:#FFD700;margin:10px 0;}
+.info{font-size:13px;color:#aaa;line-height:1.9;margin:8px 0;}
+.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:460px;margin:10px auto;}
+.card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;cursor:pointer;transition:0.2s;}
+.card:hover{background:rgba(255,255,255,0.12);transform:translateY(-2px);}
+.card.mx{opacity:0.5;cursor:default;}
+.card .ci{font-size:30px;}
+.card .cn{font-size:13px;font-weight:bold;color:#eee;}
+.card .cl{font-size:11px;color:#7af;margin:3px 0;}
+.card .ce{font-size:10px;color:#aaa;}
+.card .cc{font-size:13px;color:#f9a825;margin-top:5px;}
+.bar{width:100%;height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin:3px 0;}
+.barf{height:100%;border-radius:3px;background:linear-gradient(90deg,#42a5f5,#1e88e5);}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ov">
+<div id="grade-sel" class="scr on">
+<div style="font-size:70px;">✈️</div>
+<h1>数学飞行大冒险</h1>
+<div class="sub">选择年级，驾驶飞机穿越正确答案门!</div>
+<div class="coins" id="menu-coins">💰 0</div>
+<div class="grade-grid" id="grade-grid"></div>
+<button class="btn btn-shop" onclick="showShop()">🔧 升级飞机</button>
+<div class="info">↑↓/WS 控制高度 · 飞向正确数字的门<br>答对得分+金币 · 答错扣血 · 每关12题</div>
+</div>
+<div id="shop-scr" class="scr">
+<h2>🔧 飞机升级</h2>
+<div class="coins" id="shop-coins">💰 0</div>
+<div class="shop-grid" id="shop-grid"></div>
+<button class="btn btn-back" onclick="backToMenu()">⬅ 返回</button>
+</div>
+<div id="win-scr" class="scr">
+<div style="font-size:65px;">🏆</div>
+<h2 id="win-title">通关!</h2>
+<div class="coins" id="win-info"></div>
+<div class="info" id="win-stats"></div>
+<button class="btn btn-shop" onclick="showShop()">🔧 升级飞机</button>
+<button class="btn btn-next" onclick="showGradeSelect()">▶ 继续挑战</button>
+</div>
+<div id="lose-scr" class="scr">
+<div style="font-size:65px;">💥</div>
+<h2>坠机了!</h2>
+<div class="info" id="lose-stats"></div>
+<button class="btn btn-go" onclick="showGradeSelect()">🔄 再来一次</button>
+<button class="btn btn-shop" onclick="showShop()">🔧 升级再战</button>
+<button class="btn btn-back" onclick="backToMenu()">⬅ 主页</button>
+</div>
+</div>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W=canvas.width=Math.min(innerWidth,850);
+let H=canvas.height=Math.min(innerHeight,550);
+addEventListener('resize',()=>{W=canvas.width=Math.min(innerWidth,850);H=canvas.height=Math.min(innerHeight,550);});
+
+// roundRect polyfill
+if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){r=Math.min(r,w/2,h/2);this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);};}
+
+// ==================== 存档 ====================
+let coins=+localStorage.getItem('mathCoins')||0;
+let upgrades=JSON.parse(localStorage.getItem('mathUp')||'{"engine":0,"wings":0,"armor":0,"magnet":0}');
+let selectedGrade=1, currentLevel=1;
+
+const PARTS={
+  engine:{name:'引擎',icon:'⚙️',max:8,base:20,mult:1.4,desc:'飞行速度',eff:l=>`+${l*10}%`},
+  wings:{name:'尾翼',icon:'🪽',max:8,base:18,mult:1.3,desc:'操控灵活',eff:l=>`+${l*12}%`},
+  armor:{name:'装甲',icon:'🛡️',max:5,base:40,mult:1.7,desc:'初始HP',eff:l=>`${3+l}点`},
+  magnet:{name:'磁铁',icon:'🧲',max:5,base:30,mult:1.5,desc:'吸金币',eff:l=>`范围+${l*30}px`},
+};
+function cost(k){const d=PARTS[k];return Math.floor(d.base*Math.pow(d.mult,upgrades[k]));}
+function save(){localStorage.setItem('mathCoins',coins);localStorage.setItem('mathUp',JSON.stringify(upgrades));}
+
+// ==================== 数学题库引擎 ====================
+function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function generateQuestion(grade){
+  const gens={
+    1:[g1add,g1sub,g1cmp],
+    2:[g2add,g2sub,g2mul,g2div],
+    3:[g3mul,g3div,g3frac,g3peri],
+    4:[g4add,g4mul,g4dec,g4angle],
+    5:[g5frac,g5decmul,g5pct],
+    6:[g6ratio,g6neg,g6eq,g6mix],
+  };
+  const pool=gens[grade]||gens[1];
+  return pool[Math.floor(Math.random()*pool.length)]();
+}
+function makeOpts(ans){
+  let opts=[ans];
+  const range=Math.max(5,Math.abs(Math.floor(ans*0.3)));
+  while(opts.length<3){
+    let fake=ans+rand(-range,range);
+    if(fake!==ans&&!opts.includes(fake))opts.push(fake);
+    if(opts.length<3&&fake===ans)opts.push(ans+rand(1,3)*(Math.random()<0.5?1:-1));
+  }
+  return opts.sort(()=>Math.random()-0.5);
+}
+// Grade 1
+function g1add(){const a=rand(1,10),b=rand(1,10);return{q:`${a} + ${b} = ?`,ans:a+b};}
+function g1sub(){const a=rand(5,18),b=rand(1,a-1);return{q:`${a} - ${b} = ?`,ans:a-b};}
+function g1cmp(){const a=rand(1,15),b=rand(1,15);const ans=a>b?'大':a<b?'小':'一样';return{q:`${a} ○ ${b}, ○=?`,ans,opts:['大','小','一样'],isText:true};}
+// Grade 2
+function g2add(){const a=rand(20,60),b=rand(10,40);return{q:`${a} + ${b} = ?`,ans:a+b};}
+function g2sub(){const a=rand(40,90),b=rand(10,39);return{q:`${a} - ${b} = ?`,ans:a-b};}
+function g2mul(){const a=rand(2,5),b=rand(2,9);return{q:`${a} × ${b} = ?`,ans:a*b};}
+function g2div(){const b=rand(2,5),c=rand(2,9),a=b*c;return{q:`${a} ÷ ${b} = ?`,ans:c};}
+// Grade 3
+function g3mul(){const a=rand(12,30),b=rand(2,5);return{q:`${a} × ${b} = ?`,ans:a*b};}
+function g3div(){const b=rand(2,6),c=rand(5,15),a=b*c;return{q:`${a} ÷ ${b} = ?`,ans:c};}
+function g3frac(){const a=rand(1,3),b=rand(a+1,6);const r=a/b;const ans=r>=0.5?'大于一半':r>=0.25?'一半':'小于一半';return{q:`${a}/${b} 最接近?`,ans,opts:['一半','小于一半','大于一半'],isText:true};}
+function g3peri(){const a=rand(3,12),b=rand(2,8);return{q:`长${a}宽${b}的矩形周长=?`,ans:(a+b)*2};}
+// Grade 4
+function g4add(){const a=rand(100,500),b=rand(100,500);return{q:`${a} + ${b} = ?`,ans:a+b};}
+function g4mul(){const a=rand(12,40),b=rand(3,9);return{q:`${a} × ${b} = ?`,ans:a*b};}
+function g4dec(){const a=(rand(10,50)/10),b=(rand(10,50)/10);return{q:`${a.toFixed(1)} + ${b.toFixed(1)} = ?`,ans:+(a+b).toFixed(1)};}
+function g4angle(){const angles=[{q:'直角 = ?度',ans:90},{q:'平角 = ?度',ans:180},{q:'三角形内角和 = ?度',ans:180}];return angles[rand(0,2)];}
+// Grade 5
+function g5frac(){const a=rand(1,4),b=rand(2,6),c=rand(1,4),d=rand(2,6);const n=a*d+c*b,den=b*d;const g=gcd(n,den);return{q:`${a}/${b}+${c}/${d}=?/${den/g===1?den:den/g}(分子)`,ans:Math.floor(n/g)};}
+function g5decmul(){const a=rand(2,9),b=rand(10,50)/10;return{q:`${a} × ${b.toFixed(1)} = ?`,ans:+(a*b).toFixed(1)};}
+function g5pct(){const pcts=[10,20,25,50],p=pcts[rand(0,3)],n=rand(2,20)*100/p*rand(1,3);return{q:`${p}% of ${Math.floor(n)} = ?`,ans:Math.floor(n*p/100)};}
+// Grade 6
+function g6ratio(){const a=rand(2,5),b=rand(3,7),k=rand(2,5);return{q:`${a}:${b}=${a*k}:?`,ans:b*k};}
+function g6neg(){const a=rand(-10,-1),b=rand(1,15);return{q:`(${a}) + ${b} = ?`,ans:a+b};}
+function g6eq(){const x=rand(2,10),a=rand(2,5),b=rand(1,20);return{q:`${a}x + ${b} = ${a*x+b}, x=?`,ans:x};}
+function g6mix(){const a=rand(2,8),b=rand(2,8),c=rand(1,5);return{q:`${a} × ${b} + ${c} = ?`,ans:a*b+c};}
+function gcd(a,b){return b?gcd(b,a%b):a;}
+
+// ==================== 游戏状态 ====================
+let state='menu',frame=0,keys={};
+let plane,gates,particles,coins_floating;
+let hp,maxHp,score,combo,questionsAnswered,totalQuestions;
+let currentQuestion,scrollSpeed,distance,invincible;
+let clouds=[],mountains=[];
+
+const QUESTIONS_PER_LEVEL=12;
+const GATE_SPACING=320;
+
+function initLevel(){
+  state='playing';frame=0;
+  score=0;combo=0;questionsAnswered=0;totalQuestions=QUESTIONS_PER_LEVEL;
+  maxHp=3+upgrades.armor;hp=maxHp;
+  invincible=0;distance=0;
+  scrollSpeed=2.5*(1+upgrades.engine*0.1);
+  
+  plane={x:100,y:H/2,vy:0,tilt:0,size:24,trail:[]};
+  gates=[];particles=[];coins_floating=[];
+  clouds=[];mountains=[];
+  for(let i=0;i<6;i++)clouds.push({x:Math.random()*W,y:20+Math.random()*80,w:50+Math.random()*70,sp:0.2+Math.random()*0.4});
+  for(let i=0;i<4;i++)mountains.push({x:i*220,h:50+Math.random()*70,w:160+Math.random()*80});
+  
+  // Generate first gate set
+  spawnGateSet();
+}
+
+function spawnGateSet(){
+  if(questionsAnswered>=totalQuestions)return;
+  const q=generateQuestion(selectedGrade);
+  currentQuestion=q;
+  
+  let options;
+  if(q.isText){
+    options=q.opts||['?','?','?'];
+  } else {
+    options=makeOpts(q.ans);
+  }
+  
+  const gateX=W+80;
+  const positions=[H*0.2, H*0.5, H*0.8];
+  // Shuffle positions
+  for(let i=positions.length-1;i>0;i--){const j=rand(0,i);[positions[i],positions[j]]=[positions[j],positions[i]];}
+  
+  options.forEach((opt,i)=>{
+    gates.push({
+      x:gateX+i*60, y:positions[i],
+      w:65, h:70,
+      value:opt,
+      correct: q.isText ? opt===q.ans : opt===q.ans,
+      hit:false, result:null, flash:0
+    });
+  });
+}
+
+// ==================== 更新逻辑 ====================
+function update(){
+  if(state!=='playing')return;
+  frame++;
+  distance+=scrollSpeed;
+  
+  // Plane movement
+  const lift=0.32*(1+upgrades.wings*0.12);
+  const gravity=0.15;
+  const maxVy=4.5+upgrades.wings*0.3;
+  
+  if(keys['arrowup']||keys['w'])plane.vy-=lift;
+  if(keys['arrowdown']||keys['s'])plane.vy+=lift;
+  plane.vy+=gravity;
+  plane.vy=Math.max(-maxVy,Math.min(maxVy,plane.vy));
+  plane.y+=plane.vy;
+  plane.tilt=plane.vy*0.04;
+  
+  if(plane.y<plane.size+5){plane.y=plane.size+5;plane.vy=0.5;}
+  if(plane.y>H-plane.size-5){plane.y=H-plane.size-5;plane.vy=-0.5;}
+  
+  // Trail
+  if(frame%2===0)plane.trail.push({x:plane.x-12,y:plane.y,life:15});
+  plane.trail=plane.trail.filter(t=>{t.life--;t.x-=scrollSpeed*0.3;return t.life>0;});
+  
+  // Invincible timer
+  if(invincible>0)invincible--;
+  
+  // Move gates
+  gates.forEach(g=>{g.x-=scrollSpeed;if(g.flash>0)g.flash--;});
+  gates=gates.filter(g=>g.x>-100);
+  
+  // Move floating coins
+  coins_floating.forEach(c=>{c.x-=scrollSpeed;c.y+=c.vy;c.vy+=0.05;c.life--;});
+  coins_floating=coins_floating.filter(c=>c.life>0&&c.x>-30);
+  
+  // Magnet: attract coins
+  const magnetR=upgrades.magnet*30+20;
+  coins_floating.forEach(c=>{
+    const d=Math.hypot(c.x-plane.x,c.y-plane.y);
+    if(d<magnetR){c.x+=(plane.x-c.x)*0.08;c.y+=(plane.y-c.y)*0.08;}
+    if(d<25&&!c.collected){c.collected=true;coins++;score+=2;addParticles(c.x,c.y,'#FFD700',4);}
+  });
+  coins_floating=coins_floating.filter(c=>!c.collected);
+  
+  // Clouds
+  clouds.forEach(c=>{c.x-=c.sp;if(c.x<-c.w)c.x=W+c.w;});
+  mountains.forEach(m=>{m.x-=scrollSpeed*0.25;if(m.x<-m.w)m.x=W+m.w;});
+  
+  // Collision: plane vs gates
+  if(invincible<=0){
+    for(let i=gates.length-1;i>=0;i--){
+      const g=gates[i];
+      if(g.hit)continue;
+      if(Math.abs(plane.x-g.x)<(plane.size+g.w/2)*0.7 && Math.abs(plane.y-g.y)<(plane.size+g.h/2)*0.7){
+        g.hit=true;
+        questionsAnswered++;
+        if(g.correct){
+          // Correct!
+          g.result='correct';g.flash=30;
+          score+=10+combo*5;
+          combo++;
+          addParticles(g.x,g.y,'#4CAF50',12);
+          addParticles(g.x,g.y,'#FFD700',6);
+          // Drop coins
+          for(let j=0;j<3;j++)coins_floating.push({x:g.x+rand(-20,20),y:g.y+rand(-20,20),vy:-2+Math.random()*-1,life:90,collected:false});
+          if(combo>=3)addParticles(plane.x,plane.y,'#FF9800',8);
+          // Remove other gates of this set (within 200px)
+          gates.forEach(og=>{if(og!==g&&Math.abs(og.x-g.x)<200){og.hit=true;og.result='fade';}});
+          // Spawn next set after delay
+          setTimeout(()=>{if(state==='playing'&&questionsAnswered<totalQuestions)spawnGateSet();},600);
+        } else {
+          // Wrong!
+          g.result='wrong';g.flash=30;
+          hp--;combo=0;
+          invincible=60;
+          addParticles(g.x,g.y,'#f44336',10);
+          // Show correct answer - highlight correct gate
+          gates.forEach(og=>{if(!og.hit&&og.correct){og.result='correct';og.flash=60;}});
+          setTimeout(()=>{if(state==='playing'&&questionsAnswered<totalQuestions)spawnGateSet();},900);
+        }
+        break;
+      }
+    }
+  }
+  
+  // Particles
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.08;p.life--;});
+  particles=particles.filter(p=>p.life>0);
+  
+  // Check level complete
+  if(questionsAnswered>=totalQuestions&&gates.filter(g=>!g.hit).length===0){
+    levelComplete();
+  }
+  
+  // Check death
+  if(hp<=0){gameOver();}
+}
+
+function addParticles(x,y,color,count){
+  for(let i=0;i<count;i++)particles.push({x,y,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,life:25+Math.random()*15,maxLife:40,size:2+Math.random()*4,color});
+}
+
+function levelComplete(){
+  state='win';
+  const earned=30+score+currentLevel*10;
+  coins+=earned;save();
+  currentLevel++;
+  document.getElementById('win-title').textContent=`第${selectedGrade}年级 · 第${currentLevel-1}关 通过!`;
+  document.getElementById('win-info').textContent=`💰 +${earned} 金币`;
+  document.getElementById('win-stats').innerHTML=`得分: ${score} · 连击最高: ${combo}<br>总金币: 💰${coins}`;
+  showScreen('win-scr');
+}
+
+function gameOver(){
+  state='lose';
+  const earned=Math.floor(score*0.3);
+  coins+=earned;save();
+  document.getElementById('lose-stats').innerHTML=`答对: ${questionsAnswered}/${totalQuestions}<br>得分: ${score}<br>获得: 💰${earned}`;
+  showScreen('lose-scr');
+}
+
+// ==================== 渲染 ====================
+function draw(){
+  // Sky
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  if(state==='playing'){
+    const p=Math.min(1,questionsAnswered/totalQuestions);
+    sky.addColorStop(0,`hsl(${210-p*40},65%,${15+p*10}%)`);
+    sky.addColorStop(1,`hsl(${200-p*30},55%,${30+p*10}%)`);
+  }else{sky.addColorStop(0,'#1a237e');sky.addColorStop(1,'#0d47a1');}
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  
+  if(state!=='playing'){drawBgAnim();return;}
+  
+  // Mountains
+  ctx.fillStyle='rgba(25,45,65,0.5)';
+  mountains.forEach(m=>{ctx.beginPath();ctx.moveTo(m.x,H);ctx.lineTo(m.x+m.w/2,H-m.h);ctx.lineTo(m.x+m.w,H);ctx.fill();});
+  
+  // Clouds
+  ctx.fillStyle='rgba(255,255,255,0.12)';
+  clouds.forEach(c=>{ctx.beginPath();ctx.ellipse(c.x,c.y,c.w/2,14,0,0,Math.PI*2);ctx.fill();});
+  
+  // Ground
+  ctx.fillStyle='#1b5e20';ctx.fillRect(0,H-6,W,6);
+  
+  // Question display
+  if(currentQuestion){
+    ctx.save();
+    ctx.font='bold 22px Arial';
+    ctx.textAlign='center';
+    ctx.fillStyle='rgba(0,0,0,0.6)';
+    ctx.fillRect(W/2-160,8,320,36);
+    ctx.fillStyle='#FFD700';
+    ctx.fillText(currentQuestion.q,W/2,32);
+    ctx.restore();
+  }
+  
+  // Gates
+  gates.forEach(drawGate);
+  
+  // Floating coins
+  coins_floating.forEach(c=>{
+    ctx.globalAlpha=c.life/90;
+    ctx.font='14px serif';ctx.textAlign='center';
+    ctx.fillText('💰',c.x,c.y);
+  });
+  ctx.globalAlpha=1;
+  
+  // Trail
+  plane.trail.forEach(t=>{
+    ctx.globalAlpha=t.life/15*0.3;
+    ctx.fillStyle='#ff8f00';
+    ctx.beginPath();ctx.arc(t.x,t.y,2+t.life*0.1,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+  
+  // Plane
+  drawPlane();
+  
+  // Particles
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.life/p.maxLife;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size*(p.life/p.maxLife),0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+  
+  // HUD
+  drawHUD();
+}
+
+function drawBgAnim(){
+  for(let i=0;i<5;i++){
+    const cx=((frame*0.4+i*180)%(W+200))-100;
+    ctx.fillStyle='rgba(255,255,255,0.06)';
+    ctx.beginPath();ctx.ellipse(cx,60+i*35,60,16,0,0,Math.PI*2);ctx.fill();
+  }
+}
+
+function drawPlane(){
+  ctx.save();
+  ctx.translate(plane.x,plane.y);
+  ctx.rotate(plane.tilt);
+  if(invincible>0&&Math.floor(frame/3)%2)ctx.globalAlpha=0.4;
+  
+  const s=plane.size;
+  // Body
+  ctx.fillStyle='#e3f2fd';
+  ctx.beginPath();
+  ctx.moveTo(s,0);ctx.quadraticCurveTo(s*0.5,-s*0.3,-s*0.7,-s*0.12);
+  ctx.lineTo(-s,0);ctx.lineTo(-s*0.7,s*0.12);ctx.quadraticCurveTo(s*0.5,s*0.3,s,0);
+  ctx.fill();ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;ctx.stroke();
+  
+  // Cockpit
+  ctx.fillStyle='#29b6f6';
+  ctx.beginPath();ctx.ellipse(s*0.3,-s*0.05,s*0.18,s*0.1,-0.2,0,Math.PI*2);ctx.fill();
+  
+  // Wings
+  const wl=s*0.65+upgrades.wings*1.5;
+  ctx.fillStyle='#bbdefb';
+  ctx.beginPath();ctx.moveTo(s*0.1,-s*0.12);ctx.lineTo(-s*0.15,-wl);ctx.lineTo(-s*0.45,-wl*0.7);ctx.lineTo(-s*0.25,-s*0.08);ctx.fill();
+  ctx.beginPath();ctx.moveTo(s*0.1,s*0.12);ctx.lineTo(-s*0.15,wl);ctx.lineTo(-s*0.45,wl*0.7);ctx.lineTo(-s*0.25,s*0.08);ctx.fill();
+  
+  // Tail
+  ctx.fillStyle='#90caf9';
+  ctx.beginPath();ctx.moveTo(-s*0.5,0);ctx.lineTo(-s*0.8,-s*0.35-upgrades.wings);ctx.lineTo(-s*0.95,-s*0.2);ctx.lineTo(-s*0.75,0);ctx.fill();
+  
+  // Engine flame
+  const fl=6+upgrades.engine*2.5+Math.sin(frame*0.4)*2;
+  ctx.fillStyle='#ff6f00';
+  ctx.beginPath();ctx.moveTo(-s,0);ctx.lineTo(-s-fl,-3);ctx.lineTo(-s-fl,3);ctx.fill();
+  if(upgrades.engine>=5){
+    ctx.fillStyle='#ffab00';
+    ctx.beginPath();ctx.moveTo(-s,-3);ctx.lineTo(-s-fl*0.6,-5);ctx.lineTo(-s-fl*0.6,-1);ctx.fill();
+    ctx.beginPath();ctx.moveTo(-s,3);ctx.lineTo(-s-fl*0.6,1);ctx.lineTo(-s-fl*0.6,5);ctx.fill();
+  }
+  
+  // Armor glow
+  if(upgrades.armor>=2){
+    ctx.strokeStyle=`rgba(255,213,79,${0.2+Math.sin(frame*0.05)*0.1})`;
+    ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,0,s*0.85,0,Math.PI*2);ctx.stroke();
+  }
+  
+  ctx.restore();
+}
+
+function drawGate(g){
+  ctx.save();
+  ctx.translate(g.x,g.y);
+  
+  let color='#1e88e5'; // default blue
+  if(g.result==='correct')color='#4CAF50';
+  if(g.result==='wrong')color='#f44336';
+  if(g.result==='fade'){ctx.globalAlpha=0.3;}
+  
+  // Gate frame
+  ctx.fillStyle=color;
+  ctx.globalAlpha=(ctx.globalAlpha||1)*(g.hit?0.5:0.85);
+  ctx.beginPath();
+  ctx.roundRect(-g.w/2,-g.h/2,g.w,g.h,8);
+  ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=2;ctx.stroke();
+  
+  // Arch top
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.arc(0,-g.h/2,g.w/2,Math.PI,0);
+  ctx.fill();
+  
+  // Value text
+  ctx.globalAlpha=g.result==='fade'?0.3:1;
+  ctx.font='bold 20px Arial';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';
+  ctx.fillText(String(g.value),0,5);
+  
+  // Correct marker
+  if(g.result==='correct'){
+    ctx.font='24px serif';
+    ctx.fillText('✅',0,-g.h/2-15);
+  }
+  if(g.result==='wrong'){
+    ctx.font='24px serif';
+    ctx.fillText('❌',0,-g.h/2-15);
+  }
+  
+  ctx.restore();
+}
+
+function drawHUD(){
+  // HP
+  ctx.font='16px serif';ctx.textAlign='left';
+  let hpStr='';for(let i=0;i<hp;i++)hpStr+='❤️';
+  for(let i=hp;i<maxHp;i++)hpStr+='🖤';
+  ctx.fillText(hpStr,10,H-15);
+  
+  // Score & combo
+  ctx.font='bold 13px Arial';
+  ctx.fillStyle='#fff';
+  ctx.fillText(`分数: ${score}`,10,52);
+  if(combo>=2){
+    ctx.fillStyle='#FF9800';
+    ctx.fillText(`🔥 连击 ×${combo}`,10,70);
+  }
+  
+  // Progress
+  const prog=Math.min(1,questionsAnswered/totalQuestions);
+  ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(W-170,10,150,12);
+  ctx.fillStyle='#4caf50';ctx.fillRect(W-170,10,150*prog,12);
+  ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.fillStyle='#fff';
+  ctx.fillText(`${questionsAnswered}/${totalQuestions} 题`,W-95,19);
+  
+  // Grade & coins
+  ctx.textAlign='right';ctx.font='bold 12px Arial';
+  ctx.fillStyle='#90caf9';ctx.fillText(`${selectedGrade}年级`,W-10,38);
+  ctx.fillStyle='#FFD700';ctx.fillText(`💰${coins}`,W-10,55);
+}
+
+// ==================== UI控制 ====================
+function showScreen(id){document.getElementById(id).classList.add('on');}
+function hideAll(){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));}
+function backToMenu(){hideAll();state='menu';document.getElementById('menu-coins').textContent=`💰 ${coins}`;showScreen('grade-sel');}
+
+function showGradeSelect(){
+  hideAll();state='menu';
+  document.getElementById('menu-coins').textContent=`💰 ${coins}`;
+  showScreen('grade-sel');
+}
+
+function showShop(){
+  hideAll();state='shop';
+  document.getElementById('shop-coins').textContent=`💰 ${coins}`;
+  const grid=document.getElementById('shop-grid');
+  grid.innerHTML='';
+  Object.entries(PARTS).forEach(([k,d])=>{
+    const lv=upgrades[k],mx=lv>=d.max,c=mx?0:cost(k),can=!mx&&coins>=c;
+    const card=document.createElement('div');
+    card.className=`card ${mx?'mx':''}`;
+    card.innerHTML=`<div class="ci">${d.icon}</div><div class="cn">${d.name}</div>
+      <div class="cl">Lv.${lv}/${d.max}</div><div class="bar"><div class="barf" style="width:${lv/d.max*100}%"></div></div>
+      <div class="ce">${d.desc}: ${d.eff(lv)}</div><div class="cc">${mx?'✅ 满级':`💰${c}`}</div>`;
+    if(can)card.onclick=()=>{coins-=c;upgrades[k]++;save();showShop();};
+    else if(!mx)card.style.opacity='0.6';
+    grid.appendChild(card);
+  });
+  showScreen('shop-scr');
+}
+
+// Grade selection buttons
+function initGradeSelect(){
+  const grid=document.getElementById('grade-grid');
+  const names=['一年级','二年级','三年级','四年级','五年级','六年级'];
+  const colors=['#43a047','#1e88e5','#7b1fa2','#e65100','#c62828','#1a237e'];
+  const topics=['加减法','乘除法','多位数','小数角度','分数百分比','方程比例'];
+  grid.innerHTML='';
+  for(let i=0;i<6;i++){
+    const btn=document.createElement('div');
+    btn.className='grade-btn';
+    btn.style.borderColor=colors[i];
+    btn.innerHTML=`<span class="glv">${i+1}</span>${names[i]}<br><small style="color:#aaa">${topics[i]}</small>`;
+    btn.onclick=()=>{selectedGrade=i+1;currentLevel=1;initLevel();hideAll();};
+    grid.appendChild(btn);
+  }
+}
+
+// ==================== 输入 ====================
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(['arrowup','arrowdown',' '].includes(e.key.toLowerCase()))e.preventDefault();});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+let touchActive=false,touchStartY=0;
+canvas.addEventListener('touchstart',e=>{e.preventDefault();touchActive=true;touchStartY=e.touches[0].clientY;});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const dy=e.touches[0].clientY-touchStartY;
+  keys['arrowup']=dy<-15;keys['arrowdown']=dy>15;
+});
+canvas.addEventListener('touchend',()=>{keys['arrowup']=false;keys['arrowdown']=false;touchActive=false;});
+
+// ==================== 主循环 ====================
+function loop(){frame++;update();draw();requestAnimationFrame(loop);}
+initGradeSelect();
+showGradeSelect();
+loop();
+</script>
+</body>
+</html>
