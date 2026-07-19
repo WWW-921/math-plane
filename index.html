@@ -241,6 +241,18 @@ function update(){
   
   // Move gates
   gates.forEach(g=>{g.x-=scrollSpeed;if(g.flash>0)g.flash--;});
+  // Check if all gates passed without being hit (missed question)
+  const activeGates=gates.filter(g=>!g.hit);
+  if(activeGates.length>0 && activeGates.every(g=>g.x<-50)){
+    // All gates missed - count as wrong answer
+    questionsAnswered++;
+    hp--;combo=0;invincible=60;
+    addParticles(plane.x,plane.y,'#f44336',6);
+    gates=[];
+    if(hp>0&&questionsAnswered<totalQuestions){
+      setTimeout(()=>{if(state==='playing')spawnGateSet();},500);
+    }
+  }
   gates=gates.filter(g=>g.x>-100);
   
   // Move floating coins
