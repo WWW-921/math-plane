@@ -219,18 +219,19 @@ function update(){
   
   // Plane movement
   const lift=0.28*(1+upgrades.wings*0.12);
-  const gravity=0.12;
   const maxVy=3.5+upgrades.wings*0.25;
+  const pressing=keys['arrowup']||keys['w']||keys['arrowdown']||keys['s'];
   
   if(keys['arrowup']||keys['w'])plane.vy-=lift;
   if(keys['arrowdown']||keys['s'])plane.vy+=lift;
-  plane.vy+=gravity;
+  // Auto-level when no input: gradually straighten flight
+  if(!pressing) plane.vy *= 0.92;
   plane.vy=Math.max(-maxVy,Math.min(maxVy,plane.vy));
   plane.y+=plane.vy;
   plane.tilt=plane.vy*0.04;
   
-  if(plane.y<plane.size+5){plane.y=plane.size+5;plane.vy=0.5;}
-  if(plane.y>H-plane.size-5){plane.y=H-plane.size-5;plane.vy=-0.5;}
+  if(plane.y<plane.size+5){plane.y=plane.size+5;plane.vy=0;}
+  if(plane.y>H-plane.size-5){plane.y=H-plane.size-5;plane.vy=0;}
   
   // Trail
   if(frame%2===0)plane.trail.push({x:plane.x-12,y:plane.y,life:15});
